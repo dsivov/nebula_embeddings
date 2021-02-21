@@ -33,7 +33,7 @@ class NEBULA_DOC_MODEL(Estimator):
                         alpha=self.learning_rate,
                         seed=self.seed)
 
-        model.save("model.dat")
+        model.save("model_doc.dat")
         self._embedding = np.array([model.docvecs[tags[i]] for i, _ in enumerate(documents)])
 
 
@@ -57,7 +57,11 @@ class NEBULA_WORD_MODEL(Estimator):
     def fit(self, documents, meta):
         self._set_seed()
         model = Word2Vec(sentences=documents, hs=0, min_count=0,
-                        size=self.dimensions, iter=self.epochs, alpha=self.learning_rate, seed=self.seed, window=10)
+                        size=self.dimensions, 
+                        iter=self.epochs, 
+                        alpha=self.learning_rate, 
+                        seed=self.seed, 
+                        window=10)
                         #vector_size=self.dimensions,
                         #window=10,
                         #min_count=self.min_count,
@@ -68,7 +72,7 @@ class NEBULA_WORD_MODEL(Estimator):
                         #alpha=self.learning_rate,
                         #seed=self.seed)
 
-        model.save("model.dat")
+        model.save("model_word.dat")
         vectors = []    
         for movie in meta.values():
             #print(movie[1])

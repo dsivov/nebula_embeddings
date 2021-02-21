@@ -28,8 +28,7 @@ def nebula_get_graph_formdb(ma, _filter):
     fitG = nx.convert_node_labels_to_integers(g, first_label=0)
     return fitG, lables, descriptions
 
-def nebula_get_stories(ma):
-    all_movies = ma.nebula_get_all_movies()
+def nebula_get_stories(all_movies,ma):
     story = 0
     documents = []
     tags = {}
@@ -87,8 +86,7 @@ def nebula_get_stories(ma):
     print("Number of stories:", story)
     return(documents, tags, nebula_metadata)
 
-def nebula_get_sentence(ma):
-    all_movies = ma.nebula_get_all_movies()
+def nebula_get_sentence(all_movies,ma):
     story = 0
     documents = []
     tags = {}
@@ -128,11 +126,6 @@ def nebula_get_sentence(ma):
             else:
                 neb_feature_prev = neb_feature
                 continue
-        #print(stories)
-        #input("Press Enter to continue...")
-            #print(node, descriptions[node], prefix_labels)
-            #print(movie)
-            #_tag =  _prefix + "_" + str(story) + "_" + movie['movie']['file_name']
         _tag =  "story_" + str(story)
         
         # print(movie['movie']['_id'])
@@ -144,38 +137,26 @@ def nebula_get_sentence(ma):
         tags[story]= _tag
         nebula_metadata[story] = (movie['movie']['file_name'], movie['movie']['_id'], _prefix, descriptions[node][0], descriptions[node][1])
         story = story + 1
-    print("Number of stories:", story)
+    print("Number of centences:", story)
     return(documents, tags, nebula_metadata)
     
-def create_doc_embeddings(ma, db):
-    stories, _tags, nebula_meta = nebula_get_stories(ma)
+def create_doc_embeddings(stories, _tags):    
     #print("DEBUG ",nebula_meta)
     #input("Press Enter to continue...")
-    model = NEBULA_DOC_MODEL(dimensions=128, epochs=100)
+    model = NEBULA_DOC_MODEL(dimensions=100, epochs=50)
     model.fit(stories, _tags)
     embeddings = model.get_embedding()
-    embedding_col = db.collection('Embedding')
-    for i, embedding in enumerate(embeddings):
-        embedding_col.insert(
-            {
-                'class': nebula_meta[i][2],
-                'actor_id': nebula_meta[i][4],
-                'actor_name': nebula_meta[i][3],
-                'movie_id':nebula_meta[i][1],
-                'movie_name': nebula_meta[i][0],
-                'embeddings': embedding.tolist(),
-                'story': stories[i],
-                'algo': "NEBULA_DOC"
-            })
+    return(embeddings)
 
-def create_word_embeddings(ma, db):
-    sentences, _tags, nebula_meta = nebula_get_sentence(ma)
+def create_word_embeddings(sentences, nebula_meta):
     #print("DEBUG ",sentences)
     #input("Press Enter to continue...")
-    model = NEBULA_WORD_MODEL(dimensions=128, epochs=100)
+    model = NEBULA_WORD_MODEL(dimensions=100, epochs=50)
     model.fit(sentences, nebula_meta)
     embeddings = model.get_embedding()
-    #print(embeddings)
+    return(embeddings)
+   
+def save_embeddins(db, embeddings,nebula_meta, story, algo):
     embedding_col = db.collection('Embedding')
     for i, embedding in enumerate(embeddings):
         embedding_col.insert(
@@ -186,8 +167,8 @@ def create_word_embeddings(ma, db):
                 'movie_id':nebula_meta[i][1],
                 'movie_name': nebula_meta[i][0],
                 'embeddings': embedding.tolist(),
-                'story': sentences[i],
-                'algo': "NEBULA_WORD"
+                'story': story[i],
+                'algo': algo
             })
 
 def connect_db(dbname):
@@ -211,7 +192,13 @@ def main():
     if db.has_collection('Embedding'):
         db.delete_collection('Embedding')
     db.create_collection('Embedding')
-    create_doc_embeddings(ma, db) 
-    create_word_embeddings(ma,db)  
+    all_movies = ma.nebula_get_all_movies()
+    stories, _tags, nebula_meta = nebula_get_stories(all_movies, ma)
+    centences, _tags_cent, nebula_meta_cent = nebula_get_sentence(all_movies, ma)
+    embeddings_doc = create_doc_embeddings(stories, _tags) 
+    embeddings_word = create_word_embeddings(centences, nebula_meta_cent)
+    save_embeddins(db, embeddings_doc,nebula_meta, stories, "NEBULA_DOC")  
+    save_embeddins(db, embeddings_word,nebula_meta, centences, "NEBULA_WORD")  
+
 if __name__ == '__main__':
     main()
