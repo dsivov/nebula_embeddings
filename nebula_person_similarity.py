@@ -101,8 +101,6 @@ def nebula_check_distance(embeddings, f_vec, algo):
     print("=============================DONE with " + algo + "============================")
     print()
     print()
-    
-
 
 def main():
     if len(sys.argv) < 3:
@@ -117,10 +115,10 @@ def main():
         embeddings = get_embeddings_from_db(db, algo)  
         nebula_check_distance(embeddings,  f_vec, algo)
     if algo == "NEBULA_INDEX":
-        num_index_trees = 160
+        num_index_trees = 512
         embedding_dimensions = 100
         single_index = SimpleNeighbors(embedding_dimensions)
-        for _algo in ["NEBULA_DOC","NEBULA_WORD"]:
+        for _algo in ["NEBULA_DOC"]:
             embeddings = get_embeddings_from_db(db, _algo)
             for embedding in embeddings.values():
                 movie = embedding['movie_id'] 
@@ -132,11 +130,13 @@ def main():
             print("Index for: " + _algo + " is added"  + " index size: ", len(embeddings))
     
     if algo == "NEBULA_MIX":
-        num_index_trees = 160
+        num_index_trees = 512
         embedding_dimensions = 100
         mix_index = SimpleNeighbors(embedding_dimensions * 2)
         doc_embeddings =  get_embeddings_from_db(db, "NEBULA_DOC")
+        #kmeans_clusters(doc_embeddings)
         word_embeddings =  get_embeddings_from_db(db, "NEBULA_WORD")
+        #kmeans_clusters(word_embeddings)
         for doc, word in zip(doc_embeddings.values(), word_embeddings.values()):
             #print(doc)
             #print(word)
@@ -154,11 +154,11 @@ def main():
         print('Building multi-algo index with {} trees...'.format(num_index_trees))
         single_index.build(n=num_index_trees) 
         single_index.save("nebula_index_single")
-        for _algo in ["NEBULA_DOC","NEBULA_WORD"]:     
+        for _algo in ["NEBULA_DOC"]:     
             _key = movie_id + "_" + _algo
-            sims = single_index.neighbors(_key, n=10)
+            sims = single_index.neighbors(_key, n=20)
             print("----------------------") 
-            print("Top 10 "+ _algo + " Positive Cosines for Movie: " + movie_id)
+            print("Top 20 "+ _algo + " Positive Cosines for Movie: " + movie_id)
             #print(nb)
             for sim in sims:
                 print(sim.split("_"+_algo)[0])
@@ -166,9 +166,9 @@ def main():
         while (True):
             mv = input("Enter movie id: ")
             #al = input("Enter algo <NEBULA_DOC/NEBULA_WORD>: ")
-            for _algo in ["NEBULA_DOC","NEBULA_WORD"]:     
+            for _algo in ["NEBULA_DOC"]:     
                 _key = mv + "_" + _algo
-                sims = single_index.neighbors(_key, n=10)
+                sims = single_index.neighbors(_key, n=20)
                 print("----------------------") 
                 print("Top 10 "+ _algo + " Positive Cosines for Movie: " + mv)
                 for sim in sims:
@@ -181,9 +181,9 @@ def main():
         mix_index.build(n=num_index_trees) 
         mix_index.save("nebula_index_mix_")           
         _key = movie_id
-        sims = mix_index.neighbors(_key, n=10)
+        sims = mix_index.neighbors(_key, n=20)
         print("----------------------") 
-        print("Top 10 MIX" + " Positive Cosines for Movie: " + movie_id)
+        print("Top 20 MIX" + " Positive Cosines for Movie: " + movie_id)
         #print(nb)
         for sim in sims:
             print(sim)
@@ -192,9 +192,9 @@ def main():
             mv = input("Enter movie id: ")
             #al = input("Enter algo <NEBULA_DOC/NEBULA_WORD>: ")    
             _key = mv
-            sims = mix_index.neighbors(_key, n=10)
+            sims = mix_index.neighbors(_key, n=20)
             print("----------------------") 
-            print("Top 10 MIX Positive Cosines for Movie: " + mv)
+            print("Top 20 MIX Positive Cosines for Movie: " + mv)
             for sim in sims:
                 print(sim)
             print("----------------------")

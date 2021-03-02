@@ -9,9 +9,19 @@ from scipy.stats.stats import mode
 from nebula_networkx_adapter import Nebula_Networkx_Adapter
 from nebula_model import NEBULA_DOC_MODEL, NEBULA_WORD_MODEL
 from arango import ArangoClient
+from simpleneighbors import SimpleNeighbors
+from sklearn.cluster import KMeans
 
 
-
+def check_model(embeddings, size):
+    X = np.array(embeddings)
+    for n_clus in range(10, size, 100):
+        kmeans = KMeans(n_clusters=n_clus, random_state=0).fit(X)
+        print(size, kmeans.n_iter_)
+        if kmeans.n_iter_ > 300:
+            print("maximum clusters: ", n_clus)
+            return(n_clus - 1)
+        
 
 # Specify attributes to be imported
 def nebula_get_graph_formdb(ma, _filter):
@@ -41,30 +51,38 @@ def nebula_get_stories(all_movies,ma):
         #if _prefix == "person":
         prefix_labels = [] 
         stories = []
+        story_thread = ""
         #print(fitG.nodes[node]['attr_dict']['_class'])
         if fitG.nodes[node]['attr_dict']['_class'] == "person":
             stories.append(fitG.nodes[node]['attr_dict']['_object'])
             stories = stories + lables[node] 
         else:
             stories.append(fitG.nodes[node]['attr_dict']['_class'])
+            stories = stories + lables[node]
         neb_feature_prev = ""
-        for neb in nx.dfs_predecessors(fitG, node, 1000):
-            # print(fitG.nodes[neb]['attr_dict']['_class'] )
-            # print(fitG.nodes[neb]['attr_dict']['_object'])
-            # input("Press Enter to continue...")
-            if fitG.nodes[neb]['attr_dict']['_class'] == "person":
-                neb_feature = str(fitG.nodes[neb]['attr_dict']['_object'])
-                prefix_labels =lables[neb]
-            else:
-                neb_feature = str(fitG.nodes[neb]['attr_dict']['_class'])
-                prefix_labels = []
-            if neb_feature_prev != neb_feature:
-                stories.append(neb_feature)
+        #for node in fitG.nodes():
+        for successors in nx.dfs_successors(fitG).values():
+            for neb in successors:
+                # print(fitG.nodes[neb]['attr_dict']['_class'] )
+                # print(fitG.nodes[neb]['attr_dict']['_object'])
+                #print(neb)
+                #input("Press Enter to continue...")
+                if fitG.nodes[neb]['attr_dict']['_class'] == "person":
+                    neb_feature = str(fitG.nodes[neb]['attr_dict']['_object'])
+                    prefix_labels =lables[neb]
+                else:
+                    neb_feature = str(fitG.nodes[neb]['attr_dict']['_class'])
+                    #prefix_labels = []
+                    prefix_labels =lables[neb]
+                if neb_feature == "Then" or neb_feature == "With":
+                    story_thread = neb_feature
+                else:
+                    stories.append(story_thread + "_" + neb_feature)
                 stories = stories + prefix_labels
-                neb_feature_prev = neb_feature
-            else:
-                neb_feature_prev = neb_feature
-                continue
+                #neb_feature_prev = neb_feature
+                #else:
+                    #neb_feature_prev = neb_feature
+                    #continue
             #print(node, descriptions[node], prefix_labels)
             #print(movie)
             #_tag =  _prefix + "_" + str(story) + "_" + movie['movie']['file_name']
@@ -95,6 +113,7 @@ def nebula_get_sentence(all_movies,ma):
         #print(movie['movie']['_id'], movie['movie']['movie_id'], movie['movie']['file_name'])
         fitG, lables, descriptions = nebula_get_graph_formdb(ma, movie['movie']['movie_id'])
         node = 0
+        story_thread = ""
         _prefix = ''.join([i for i in descriptions[node][0] if not i.isdigit()])
         #if _prefix == "person":
         prefix_labels = [] 
@@ -107,25 +126,33 @@ def nebula_get_sentence(all_movies,ma):
         else:
             stories.append(fitG.nodes[node]['attr_dict']['_class'])
         neb_feature_prev = ""
-        for neb in nx.dfs_predecessors(fitG, node, 1000):
-            # print(fitG.nodes[neb]['attr_dict']['_class'] )
-            # print(fitG.nodes[neb]['attr_dict']['_object'])
-            # input("Press Enter to continue...")
-            if fitG.nodes[neb]['attr_dict']['_class'] == "person":
-                stories.append(movie['movie']['_id'])
-                neb_feature = str(fitG.nodes[neb]['attr_dict']['_object'])
-                prefix_labels =lables[neb]
-            else:
-                neb_feature = str(fitG.nodes[neb]['attr_dict']['_class'])
-                prefix_labels = []
-            if neb_feature_prev != neb_feature:
-                stories.append(neb_feature)
-                stories = stories + prefix_labels
-                neb_feature_prev = neb_feature
-                #print(stories)
-            else:
-                neb_feature_prev = neb_feature
-                continue
+        #for node in fitG.nodes():
+        for successors in nx.dfs_successors(fitG).values():
+            for neb in successors:
+                # print(fitG.nodes[neb]['attr_dict']['_class'] )
+                # print(fitG.nodes[neb]['attr_dict']['_object'])
+                # input("Press Enter to continue...")
+                if fitG.nodes[neb]['attr_dict']['_class'] == "person":
+                    stories.append(movie['movie']['_id'])
+                    neb_feature = str(fitG.nodes[neb]['attr_dict']['_object'])
+                    prefix_labels =lables[neb]
+                else:
+                    neb_feature = str(fitG.nodes[neb]['attr_dict']['_class'])
+                    #prefix_labels = []
+                    prefix_labels =lables[neb]
+                if neb_feature == "Then" or neb_feature == "With":
+                    story_thread = neb_feature
+                else:
+                    stories.append(story_thread + "_" + neb_feature)
+                    stories = stories + prefix_labels
+                # if neb_feature_prev != neb_feature:
+                #     stories.append(neb_feature)
+                #     stories = stories + prefix_labels
+                #     neb_feature_prev = neb_feature
+                #     #print(stories)
+                # else:
+                #     neb_feature_prev = neb_feature
+                #     continue
         _tag =  "story_" + str(story)
         
         # print(movie['movie']['_id'])
@@ -197,6 +224,8 @@ def main():
     centences, _tags_cent, nebula_meta_cent = nebula_get_sentence(all_movies, ma)
     embeddings_doc = create_doc_embeddings(stories, _tags) 
     embeddings_word = create_word_embeddings(centences, nebula_meta_cent)
+    # check_model(embeddings_doc, len(embeddings_doc))
+    # check_model(embeddings_word, len(embeddings_word))
     save_embeddins(db, embeddings_doc,nebula_meta, stories, "NEBULA_DOC")  
     save_embeddins(db, embeddings_word,nebula_meta, centences, "NEBULA_WORD")  
 

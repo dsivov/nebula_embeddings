@@ -69,7 +69,7 @@ class Nebula_Networkx_Adapter(Networkx_Adapter_Base):
         return valid_config
     
     def convert_lables(self, nmbr):
-        return("per_" + str(round(nmbr)))
+        return(str(int(round(nmbr))))
     
     def convert_lables_to_word(self, labels):
         word_labels = []
@@ -111,7 +111,10 @@ class Nebula_Networkx_Adapter(Networkx_Adapter_Base):
                     if "With" in doc['description']:
                         doc['description'] = "With"
                     if "Then" in doc['description']:
-                        doc['description'] = "Then"
+                        doc['description'] = "Then" 
+                    # if "With" in doc['description'] or "Then" in doc['description']:
+                    #     _class = doc['description']
+                    # else:
                     _class = ''.join([i for i in doc['description'] if not i.isdigit()])
                     doc['_class'] = _class
                     doc['_object'] = doc['description']
@@ -119,9 +122,15 @@ class Nebula_Networkx_Adapter(Networkx_Adapter_Base):
                     #print(doc['labels'])
                     nebula_metadata[i] = (doc['description'], doc['_id'])
                     #print(doc['description'])
-                    curr_lable = self.convert_lables_to_word(doc['labels'])
-                    #nebula_labels[i]=list(map(self.convert_lables,doc['labels']))   
-                    nebula_labels[i] = curr_lable             
+                    #curr_lable = self.convert_lables_to_word(doc['labels'])
+                    if "Then" in doc['description']  or  "With" in doc['description']:
+                         nebula_labels[i] = []
+                    else:
+                        nebula_labels[i]=list(map(self.convert_lables,doc['labels']))  
+                        nebula_labels[i].pop(0) 
+                        _prefix = ''.join([i for i in doc['description'] if not i.isdigit()])
+                        nebula_labels[i] = [_prefix + "_" + sub for sub in nebula_labels[i]]
+                        #nebula_labels[i] = curr_lable             
                     i = i + 1
             for k, v in graph_attributes['edgeCollections'].items():
                 if not _filter:
